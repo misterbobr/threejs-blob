@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "dat.gui": "^0.7.9",
+    "gsap": "^3.11.3",
+    "simplex-noise": "^4.0.1",
+    "three": "^0.145.0",
+    "webpack": "^5.74.0",
+    "webpack-cli": "^4.10.0"
+  },
+  "scripts": {
+    "dev": "webpack --config webpack.config.js"
+  }
+}
