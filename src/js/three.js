@@ -4,9 +4,11 @@ import {ParametricGeometries} from 'three/examples/jsm/geometries/ParametricGeom
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
 import * as dat from 'dat.gui';
 import {gsap} from 'gsap';
+import * as CustomEase from 'gsap/CustomEase';
 import {createNoise3D} from 'simplex-noise';
 import { randFloat } from 'three/src/math/mathutils';
-import { IcosahedronGeometry, InterpolateLinear, NormalAnimationBlendMode, Vector3 } from 'three';
+
+gsap.registerPlugin(CustomEase);
 
 let renderer,
 scene,
@@ -22,7 +24,8 @@ controls,
 intersectedObjects,
 container = document.getElementById("canvas_container"),
 noise = new createNoise3D(),
-blobScale = 3;
+velocities,
+clock;
 
 function init() {
     scene = new THREE.Scene();
@@ -82,7 +85,7 @@ function init() {
     const plane = new THREE.Mesh(planeGeometry, planeMaterial);
     plane.position.set(0, 0, -150);
     scene.add(plane);
-
+    
     // LIGHT
 
     // const pLight1 = new THREE.PointLight(0x8844dd, .6);
@@ -121,8 +124,9 @@ function init() {
     // scene.add(aLight);
 
     // GEOMETRY
-    const geometry1 = new THREE.BoxGeometry( 2, 2, 2, 1, 1, 5);
-    const geometry2 = new THREE.IcosahedronGeometry(10, 15);
+    const detalization = 15;
+    // const geometry1 = new THREE.BoxGeometry( 2, 2, 2, 1, 1, 5);
+    const geometry2 = new THREE.IcosahedronGeometry(10, detalization);
 
     // const parametricGeometry = new ParametricGeometry(ParametricGeometries.klein, 10, 10);
 
@@ -142,7 +146,7 @@ function init() {
     }
     // meshes[0].material.setValues({opacity: 0});
     meshes[0].material.transparent = true;
-    meshes[0].material.opacity = 0.7;
+    meshes[0].material.opacity = 1;
 
     meshes[0].position.set(0, 0, -1);
     // meshes[1].position.set(4, 0, 0);
@@ -158,9 +162,8 @@ function init() {
     
     let tl = gsap.timeline({repeat: -1, repeatDelay: 1});
 
-    // tl.fromTo(meshes[0].material, {wireframe:})
-    // tl.fromTo(meshes[0].material, {opacity: 0.7}, {duration: 2, ease: 'sine.in', opacity: 0})
-    // .to(meshes[0].material, {duration: 2, ease: 'sine.in', opacity: 0.7});
+    tl.fromTo(meshes[0].material, {opacity: 1}, {duration: 1, ease: 'sine.in', opacity: 0})
+    .to(meshes[0].material, {duration: 1, ease: 'sine.in', opacity: 1});
 
     let tl2 = gsap.timeline({repeat: -1});
     tl2.fromTo(dLightTop.color, {r: 1, g: 0.5, b: 0}, {r: 0.5, g: 1, b: 0.2, duration: 1, ease: 'linear'})
@@ -176,13 +179,24 @@ function init() {
     .to(dLightBot.color, {r: 0.5, g: 1, b: 0.2, duration: 1, ease: 'linear'});
     let tl5 = gsap.timeline({repeat: -1});
     tl5.fromTo(dLightR.color, {r: 0.6, g: 0.7, b: 0.3}, {r: 0.3, g: 0.9, b: 0.1, duration: 1})
-    .to(dLightR.color, {r: 0, g: 0.4, b: 0.8, duration: 1})
-    .to(dLightR.color, {r: 0.6, g: 0.7, b: 0.3, duration: 1});
+    .to(dLightR.color, {r: 0, g: 0.4, b: 0.8, duration: 1, ease: 'linear'})
+    .to(dLightR.color, {r: 0.6, g: 0.7, b: 0.3, duration: 1, ease: 'linear'});
 
+
+    gsap.to(meshes[0].material, {wireframe: true, duration: 0.9, ease: 'steps (1)'}, 0);
+    let tlFrame1 = gsap.timeline({repeat: -1, repeatDelay: 3});
+    tlFrame1.startTime(1);
+    tlFrame1.to(meshes[0].material, {wireframe: false, duration: 3, ease: 'steps (1)'})
+    // .to(meshes[0].material, {wireframe: true, duration: 0, ease: 'steps (1)'});
+    // .to(meshes[0].material, {wireframe: false, duration: 0, ease: 'steps (1)'});
+    // let tlFrame2 = gsap.timeline({repeat: -1, repeatDelay: 3});
+    // tlFrame2.fromTo(meshes[0].material, {wireframe: true}, {wireframe: false, duration: 0, ease: 'steps (1)'}, 4)
+    // .to(meshes[0].material, {wireframe: true, duration: 1, ease: 'steps (1)'});
+    
     // REFRESH & ANIMATE
-    const clock = new THREE.Clock();
+    clock = new THREE.Clock();
 
-    const velocities = {
+    velocities = {
         x: Array.from(Array(meshes.length), () => randFloat(-1, 1)),
         y: Array.from(Array(meshes.length), () => randFloat(-1, 1)),
         z: Array.from(Array(meshes.length), () => randFloat(-1, 1))
@@ -192,7 +206,7 @@ function init() {
 }
 
 function tick() {
-    // const delta = clock.getDelta();
+    const delta = clock.getDelta();
     
     // meshes.forEach((mesh, i) => {
         // mesh.rotation.x += velocities.x[i] * delta;
@@ -201,6 +215,10 @@ function tick() {
 
             // mesh.material.opacity = 0.7;
     // });
+
+    meshes[0].rotation.x += velocities.x[0] * delta;
+    meshes[0].rotation.y += velocities.y[0] * delta;
+    meshes[0].rotation.z += velocities.z[0] * delta;
 
     const position = meshes[0].geometry.attributes.position;
     const v = new THREE.Vector3();
@@ -212,7 +230,7 @@ function tick() {
         let distance = meshes[0].geometry.parameters.radius + noise(
             v.x + time * 0.0003,
             v.y + time * 0.0003,
-            v.z + time * 0.0003) * 1;
+            v.z + time * 0.0003) * 0.8;
         v.multiplyScalar(distance);
         position.setXYZ(i, v.x, v.y, v.z);
     }
