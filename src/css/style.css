@@ -3,7 +3,7 @@ body {
     overflow: hidden;
     width: 100vw;
     height: 100vh;
-    background-color: #222;
+    background-color: #eee;
     background-size: cover;
     backdrop-filter:  brightness(50%);
 }
