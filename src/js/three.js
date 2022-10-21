@@ -4,6 +4,7 @@ import * as dat from 'dat.gui';
 import {gsap} from 'gsap';
 import {createNoise3D} from 'simplex-noise';
 import { randFloat } from 'three/src/math/mathutils';
+import { Vector2 } from 'three';
 
 
 let renderer,
@@ -15,7 +16,7 @@ raycaster,
 pointer,
 defaultColor,
 radius,
-vertexNormals,
+vertexNormals = false,
 rows,
 cols,
 meshes,
@@ -26,7 +27,7 @@ container = document.getElementById("canvas_container"),
 noise = new createNoise3D(),
 velocities,
 clock,
-blobScale = 0.3;
+blobScale = {scale: 0.3};
 
 function init() {
     scene = new THREE.Scene();
@@ -78,20 +79,20 @@ function init() {
     camera.lookAt(0, 0, 0);
     scene.add(camera);
 
-    // controls = new OrbitControls(camera, renderer.domElement);
+    controls = new OrbitControls(camera, renderer.domElement);
     
     // LIGHT
 
-    const dLightR = new THREE.DirectionalLight(0xffffff, 0.8);
-    dLightR.position.set(10, 5, 0);
+    const dLightR = new THREE.PointLight(0xffffff, 1);
+    dLightR.position.set(15, 6, 0);
     scene.add(dLightR);
-    const dLightL = new THREE.DirectionalLight(0xffffff, 0.5);
-    dLightL.position.set(-10, 0, 0);
-    scene.add(dLightL);
-    const dLightTop = new THREE.DirectionalLight(0xffffff, 0.9);
-    dLightTop.position.set(0, 10, 0);
+    const dLightBack = new THREE.PointLight(0xffffff, 1.5);
+    dLightBack.position.set(10, 15, -20);
+    scene.add(dLightBack);
+    const dLightTop = new THREE.PointLight(0xffffff, 1.2);
+    dLightTop.position.set(-10, 10, -5);
     scene.add(dLightTop);
-    const dLightBot = new THREE.DirectionalLight(0xffffff, 0.6);
+    // const dLightBot = new THREE.DirectionalLight(0xffffff, 0.6);
     // dLightBot.position.set(0, -5, 10);
     // scene.add(dLightBot);
     // const dLight5 = new THREE.DirectionalLight(0xffffff, 0.5);
@@ -101,25 +102,38 @@ function init() {
     // dLight6.position.set(0, 0, -10);
     // scene.add(dLight6);
 
-    const hLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.2);
-    scene.add(hLight);
+    // const hLight = new THREE.HemisphereLight(0xffffff, 0x000000, 1);
+    // scene.add(hLight);
+
+    // SHADER
+    // const shaderMaterial = new THREE.ShaderMaterial({
+    //     uniforms: {
+    //         // . . .
+    //     },
+    //     vertexShader:   document.getElementById('vertex-shader').textContent,
+    //     fragmentShader: document.getElementById('fragment-shader').textContent
+    // });
 
     // GEOMETRY
-    const detalization = 15;
+    const detalization = 180;
 
     // MATERIAL
-    defaultColor = 0xaaaaaa;
+    defaultColor = 0x404040;
 
     // MESH
     radius = 3;
-    vertexNormals = true;
+    // vertexNormals = true;
     const loader = new THREE.TextureLoader();
-    const texture = loader.load("/src/texture.jpg");
+    const texture = loader.load("/src/coal-texture.jpg");
+    const normal = loader.load("/src/NormalMap.png");
+    const displacement = loader.load("/src/DisplacementMap.png");
+    const ao = loader.load("/src/AmbientOcclusionMap.png");
+    const specular = loader.load("/src/SpecularMap.png");
     texture.anisotropy = 16;
     scale = {
         x: 1.4,
         y: 1,
-        z: 1.4
+        z: 1.4,
     }
 
     rows = 1;
@@ -129,13 +143,48 @@ function init() {
         meshes[i] = Array(cols);
         for (let j = 0; j < cols; j++)
         {
-            let geometry2 = new THREE.IcosahedronGeometry(radius, detalization); 
-            let material = new THREE.MeshPhongMaterial({ wireframe: false, map: texture });
-            material.setValues({color: defaultColor});
+            let geometry2 = new THREE.SphereGeometry(radius, detalization, detalization); 
+            // let material = new THREE.MeshPhongMaterial({
+            //     wireframe: false,
+            //     // map: texture,
+            //     color: defaultColor,
+            //     emissive: 0x000000,
+            //     specular: 0x202020,
+            //     shininess: 50
+            // });
+            let material = new THREE.MeshPhysicalMaterial({
+                color: defaultColor,
+                bumpMap: texture,
+                bumpScale: 0.0,
+                clearcoatMap: texture,
+                clearcoatNormalMap: normal,
+                clearcoatNormalScale: new Vector2(0.1, 0.3),
+                displacementMap: displacement,
+                displacementScale: 0,
+                roughness: 0.8,
+                metalness: 1,
+                reflectivity: 1,
+                clearcoat: 0.7,
+                clearcoatRoughness: 0.5,
+                flatShading: 1
+            });
+            // let material = new THREE.MeshStandardMaterial({
+            //     color: defaultColor,
+            //     bumpMap: texture,
+            //     bumpScale: 0.01,
+            //     // normalMap: normal,
+            //     displacementMap: displacement,
+            //     displacementScale: 1,
+            //     aoMap: ao,
+            //     aoMapIntensity: 0,
+            //     roughness: 0.4,
+            //     metalness: 0.7,
+            //     flatShading: 0
+            // });
             meshes[i][j] = new THREE.Mesh(geometry2, material);
             meshes[i][j].position.set(j*30-30*cols/2-(i%2*15), i*30-30*rows/2, -2);
-            meshes[i][j].material.transparent = true;
-            meshes[i][j].material.opacity = 1;
+            // meshes[i][j].material.setValues({transparent: true, opacity: 1});
+            // meshes[i][j].material.opacity = 1;
             scene.add(meshes[i][j]);
         }
     }
@@ -145,13 +194,15 @@ function init() {
         meshes[0][0].scale.y = scale.y;
         meshes[0][0].scale.z = scale.z;
 
-        gsap.fromTo(meshes[0][0].scale, {x: scale.x, y: scale.y, z: scale.z}, {x: scale.x * 1.3, y: scale.y * 0.8, z: scale.z * 1.3, duration: 5, ease: 'expo.inOut'});
-        let tlScale = gsap.timeline({repeat: -1, repeatDelay: 0});
-        tlScale.startTime(5);
-        tlScale.to(meshes[0][0].scale, {x: scale.x * 0.7, y: scale.y * 1.4, z: scale.z * 0.7, duration: 5, ease: 'expo.inOut'})
-        .to(meshes[0][0].scale, {x: scale.x * 1.3, y: scale.y * 0.8, z: scale.z * 1.3, duration: 5, ease: 'expo.inOut'});
+            gsap.fromTo(meshes[0][0].scale, {x: scale.x, y: scale.y, z: scale.z}, {x: scale.x * 1.3, y: scale.y * 1, z: scale.z * 1.3, duration: 5, ease: 'expo.inOut'});
+            let tlScale = gsap.timeline({repeat: -1, repeatDelay: 0});
+            tlScale.startTime(5);
+            tlScale.to(meshes[0][0].scale, {x: scale.x * 0.8, y: scale.y * 1.4, z: scale.z * 0.8, duration: 5, ease: 'expo.inOut'})
+            .to(meshes[0][0].scale, {x: scale.x * 1.3, y: scale.y * 1, z: scale.z * 1.3, duration: 5, ease: 'expo.inOut'});
     }
-    
+
+
+
     // REFRESH & ANIMATE
     clock = new THREE.Clock();
 
@@ -160,8 +211,16 @@ function init() {
         y: Array.from(Array(1), () => randFloat(-0.5, 0.5)),
         z: Array.from(Array(1), () => randFloat(-0.5, 0.5))
     }
-
+    
     intersectedObjects = Array.from(meshes.flat(), mesh => false);
+
+    const duration = 3;
+    const multiplier = 1.6;
+    let blobScaleTl = gsap.timeline({repeat: -1, repeatDelay: 0});
+    blobScaleTl.startTime(duration);
+    gsap.fromTo(blobScale, {scale: blobScale.scale}, {scale: blobScale.scale * multiplier, duration: duration, ease: 'sine.inOut'});
+    blobScaleTl.to(blobScale, {scale: blobScale.scale / multiplier**2, duration: duration, ease: 'sine.inOut'})
+    .to(blobScale, {scale: blobScale.scale * multiplier, duration: duration, ease: 'sine.inOut'});
 }
 
 function tick() {
@@ -182,7 +241,7 @@ function tick() {
                 let distance = meshes[0][0].geometry.parameters.radius + noise(
                     v.x + time * 0.0005,
                     v.y + time * 0.0005,
-                    v.z + time * 0.0005) * blobScale;
+                    v.z + time * 0.0005) * blobScale.scale;
                 v.multiplyScalar(distance);
                 position.setXYZ(k, v.x, v.y, v.z);
             }
@@ -201,9 +260,9 @@ function tick() {
         for (let j = 0; j < meshes[i].length; j++) {
             if (!(intersects.map((obj) => obj.object === meshes[i][j])).includes(true)) {
                 if (intersectedObjects[i*rows+j]) {
-                    console.log(intersects);
-                    console.log(meshes[i][j]);
-                    console.log(intersects.includes(meshes[i][j]));
+                    // console.log(intersects);
+                    // console.log(meshes[i][j]);
+                    // console.log(intersects.includes(meshes[i][j]));
                     const params = meshes.flat()[i*rows+j].geometry.parameters;
                     gsap.to(params, {duration: 0.3, radius: radius});
                     intersectedObjects[i*rows+j] = false;
@@ -223,7 +282,7 @@ function tick() {
         }
     }
 
-    // controls.update();
+    controls.update();
     renderer.render(scene, camera);
     window.requestAnimationFrame(tick);
 }
